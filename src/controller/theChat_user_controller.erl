@@ -6,8 +6,10 @@ login('GET', []) ->
 
 login('POST', []) ->
     Name = Req:post_param("name"),
-    case boss_db:find(yuza, [{name, 'equals', Name}]) of
-	[User] ->
+    case boss_db:find_first(yuza, [{name, 'equals', Name}]) of
+	undefined ->
+	    {json, [{error, "Bad name"}]};
+	User ->
 	    case user_lib:check_password(User:password(),
 					 Req:post_param("password")) of
 		true ->
@@ -20,9 +22,7 @@ login('POST', []) ->
 		    end;
 		false ->
 		    {json, [{error, "Bad password"}]}
-	    end;
-	[] ->
-	    {json, [{error, "Bad name"}]}
+	    end
     end;
 
 login(_, []) ->
