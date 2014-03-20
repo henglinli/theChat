@@ -14,7 +14,7 @@
 % Note that routing across applications results in a 302 redirect.
 
 % Front page
- {"/", [{controller, "utils"}, {action, "version"}]}.
+{"/", [{controller, "utils"}, {action, "version"}]}.
 
 % user profile
 %{"/profile", [{controller, "main"}, {action, "profile"}]}.

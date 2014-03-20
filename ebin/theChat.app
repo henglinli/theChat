@@ -6,8 +6,7 @@
           theChat_incoming_mail_controller,theChat_user_controller,
           theChat_message_controller,theChat_utils_controller,
           theChat_main_controller,yuza,nakama,owned_account,comment,message,
-          twitter,theChat_custom_filters,theChat_custom_tags,
-          theChat_view_lib_tags]},
+          twitter,theChat_view_lib_tags]},
      {registered,[]},
      {applications,[kernel,stdlib,crypto]},
      {env,
@@ -21,7 +20,6 @@
               [theChat_user_controller,theChat_message_controller,
                theChat_utils_controller,theChat_main_controller]},
           {model_modules,[yuza,nakama,owned_account,comment,message,twitter]},
-          {view_lib_helper_modules,
-              [theChat_custom_filters,theChat_custom_tags]},
+          {view_lib_helper_modules,[]},
           {view_lib_tags_modules,[theChat_view_lib_tags]},
           {view_modules,[]}]}]}.
