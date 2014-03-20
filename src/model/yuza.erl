@@ -2,7 +2,7 @@
 	       Email::string(),
 	       Name::string(), 
 	       RegisterTime::datetime(),
-	       Password::binary()]).
+	       Password::non_neg_integer()]).
 %
 -compile(export_all).
 %

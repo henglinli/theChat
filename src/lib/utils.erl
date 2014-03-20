@@ -1,4 +1,4 @@
--module(user_lib).
+-module(utils).
 -compile(export_all).
 
 shadow_password(Password)->

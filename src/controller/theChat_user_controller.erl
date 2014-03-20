@@ -10,7 +10,7 @@ login('POST', []) ->
 	undefined ->
 	    {json, [{error, "Bad name"}]};
 	User ->
-	    case user_lib:check_password(User:password(),
+	    case utils:check_password(User:password(),
 					 Req:post_param("password")) of
 		true ->
 		    case boss_session:set_session_data(SessionID,
@@ -41,11 +41,11 @@ register('POST', []) ->
 			undefined -> 
 			    {json, [{error, "Need password"}]};
 			Password ->			    
-			    Shadow = user_lib:shadow_password(Password),
+			    Shadow = utils:shadow_password(Password),
 			    case boss_db:find_first(yuza, [{name, 'equals', Name}]) of			
 				undefined ->
 				    User = yuza:new(
-					     id, Email, Name, calendar:universal_time(), Shadow),				  
+					     id, Email, Name, boss_mq:now(""), Shadow),				  
 				    case User:save() of
 					{error, [ErrorMessages]} ->
 					    {json, [{error, ErrorMessages}]};

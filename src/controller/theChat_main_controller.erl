@@ -28,20 +28,22 @@ deregister(_, [], User) ->
     {json, [{error, "Not supported"}]}.
 
 profile('GET', [], User) ->
-    %UserAttributes = User:attributes(),
-    %UserInfo = lists:sublist(UserAttributes, 4),
-    %{json, lists:merge([{error, "OK"}], UserInfo)};
-    RegisterTime = User:register_time(),
-    Date1970 = {{1970, 1, 1}, {0, 0, 0}},
-    Seconds = calendar:datetime_to_gregorian_seconds(RegisterTime) - 
-	calendar:datetime_to_gregorian_seconds(Date1970),
-    SecondsString = erlang:integer_to_list(Seconds),
+    UserAttributes = User:attributes(),
+    UserInfo = lists:sublist(UserAttributes, 4),
     {json, [{error, "OK"},
-	    {id, User:id()},
-	    {email, User:email()},
-	    {name, User:name()},
-	    {register_time, SecondsString}
-	   ]};
+	    {profile, UserInfo}
+	    ]};
+    %% RegisterTime = User:register_time(),
+    %% Date1970 = {{1970, 1, 1}, {0, 0, 0}},
+    %% Seconds = calendar:datetime_to_gregorian_seconds(RegisterTime) - 
+    %% 	calendar:datetime_to_gregorian_seconds(Date1970),
+    %% SecondsString = erlang:integer_to_list(Seconds),
+    %% {json, [{error, "OK"},
+    %% 	    {id, User:id()},
+    %% 	    {email, User:email()},
+    %% 	    {name, User:name()},
+    %% 	    {register_time, SecondsString}
+    %% 	   ]};
 
 profile(_, [], User) ->
     {json, [{error, "Not support"}]}.
