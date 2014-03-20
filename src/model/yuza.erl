@@ -1,8 +1,8 @@
 -module(yuza, [Id, 
-	       Email::string(),
-	       Name::string(), 
-	       RegisterTime::datetime(),
-	       Password::non_neg_integer()]).
+	       Email,
+	       Name,
+	       RegisterTime,
+	       Password]).
 %
 -compile(export_all).
 %

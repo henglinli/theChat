@@ -1,7 +1,7 @@
 -module(nakama, 
 	[Id,
 	 YuzaId,
-	 Name::string()]).
+	 Name]).
 
 -compile(export_all).
 

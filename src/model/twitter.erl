@@ -2,8 +2,7 @@
 		  User, % who twitt it
 		  At,
 		  Liked,
-		  Body::string(),
-		  Time::datetime(),
-		  From::string() % From what device
-			]).
+		  Body,
+		  Time,
+		  From]).
 -compile(export_all).

@@ -2,7 +2,6 @@
 		  User,
 		  Replay, % replay who
 		  At,
-		  Body::string(),
-		  Time::datetime()
-			]).
+		  Body,
+		  Time]).
 -compile(export_all).

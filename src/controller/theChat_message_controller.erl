@@ -15,7 +15,7 @@ push('POST', [], User) ->
 		    {json, [{error, "fatal"}]};
 		Message ->
 		    Msg = message:new(
-			    id, Who, Message, boss_mq:now(User:name())),
+			    Who, Message, boss_mq:now(User:name())),
 		    case boss_mq:push(Who, Msg) of
 			undefined ->
 			    {json, [{error, "fatal"}]};
@@ -52,9 +52,9 @@ syn('POST', [What], User) ->
 	    case What of
 		"make_friend" ->
 		    Msg = message:new(
-			    id, Who, ?make_friend_syn,
+			    Who, ?make_friend_syn,
 			    boss_mq:now("")),
-		    case boss_mq:push(?make_friend_channel ++ Who, Msg) of
+		    case boss_mq:push(?make_friend_channel_syn ++ Who, Msg) of
 			undefined ->
 			    {json, [{error, "Fatal"}]};
 			{ok, _} ->
@@ -68,7 +68,7 @@ syn('POST', [What], User) ->
 syn('GET', [What], User) ->
     case What of
 	"make_friend" ->
-	    case boss_mq:poll(?make_friend_channel ++ User:name()) of
+	    case boss_mq:poll(?make_friend_channel_syn ++ User:name()) of
 		{error, Reason} ->
 		    {json, [{error, Reason}]};
 		{ok, Time, Messages} ->
@@ -77,7 +77,7 @@ syn('GET', [What], User) ->
 						   {time, Message:time()}]
 					end, Messages),
 		    {json, [{error, "OK"},
-			    {make_friend, Results}
+			    {make_friend_syn, Results}
 			   ]}
 	    end;
 	_ ->
@@ -88,20 +88,45 @@ syn(_, [What], User) ->
     {json, [{error, "Not supported"}]}.
 
 ack('POST', [What], User) ->
+    case Req:post_param("who") of
+	undefined ->
+	    {json, [{error, "Need who"}]};
+	Who ->
+	    case What of
+		"make_friend" ->
+		    Msg = message:new(
+			    Who, ?make_friend_ack,
+			    boss_mq:now("")),
+		    case boss_mq:push(?make_friend_channel_ack ++ Who, Msg) of
+			undefined ->
+			    {json, [{error, "Fatal"}]};
+			{ok, _} ->
+			    %
+			    {json, [{error, "OK"}]}			
+		    end;
+		_ ->
+		    {json, [{error, "Not implemented"}]}
+	    end
+    end;
+
+ack('GET', [What], User) ->
     case What of
 	"make_friend" ->
-	    case boss_mq:poll(?make_friend_channel) of
+	    case boss_mq:poll(?make_friend_channel_ack ++ User:name()) of
 		{error, Reason} ->
 		    {json, [{error, Reason}]};
 		{ok, Time, Messages} ->
-		    {json, [{error, "OK"}]}
+		    Results = lists:map(fun(Message) ->
+						[{who, Message:from()},
+						 {time, Message:time()}]
+					end, Messages),
+		    {json, [{error, "OK"},
+			    {make_friend_ack, Results}
+			   ]}
 	    end;
 	_ ->
 	    {json, [{error, "Not implemented"}]}
     end;
-
-ack('GET', [What], User) ->
-    {json, [{error, "OK"}]};
 
 ack(_, [What], User) ->
     {json, [{error, "Not supported"}]}.

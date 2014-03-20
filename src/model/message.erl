@@ -1,7 +1,6 @@
 -module(message,
-	[Id,
-	 From,
-	 Message::string(),
-	 Time::non_neg_integer()]).
+	[From,
+	 Message,
+	 Time]).
 
 -compile(export_all).

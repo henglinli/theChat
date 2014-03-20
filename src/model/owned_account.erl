@@ -1,8 +1,8 @@
 -module(owned_account, 
 	[Id,
 	 YuzaId,
-	 Name::string(),
-	 Token::string()]).
+	 Name,
+	 Token]).
 
 -compile(export_all).
 
