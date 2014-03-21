@@ -1,8 +1,12 @@
 -module(owned_account, 
 	[Id,
 	 YuzaId,
+	 Type,
 	 Name,
-	 Token]).
+	 AccessToken,
+	 RefreshToken,
+	 ExpiresIn
+	]).
 
 -compile(export_all).
 

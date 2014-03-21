@@ -3,14 +3,14 @@
 -include("protocol.hrl").
 
 before_(_) ->
-    user_lib:require_login(SessionID).
+    utils:require_login(SessionID).
 
 push('POST', [], User) ->
-    case Req:post_param("who") of
+    case Req:param("who") of
 	undefined ->
 	    {json, [{error, "Need who"}]};
 	Who ->
-	    case Req:post_param("message", "hello") of
+	    case Req:param("message", "hello") of
 		undefined ->
 		    {json, [{error, "fatal"}]};
 		Message ->
@@ -45,16 +45,22 @@ hello(_, [], User) ->
     {json, [{error, "hello"}]}.
 
 syn('POST', [What], User) ->
-    case Req:post_param("who") of
+    case Req:param("who") of
 	undefined ->
 	    {json, [{error, "Need who"}]};
 	Who ->
 	    case What of
-		"make_friend" ->
+		"date" ->
+		    case Req:param("type") of
+			undefined ->
+			    DateType = "moive";
+			Type ->
+			    DateType = Type
+		    end,
 		    Msg = message:new(
-			    Who, ?make_friend_syn,
+			    Who, DateType,
 			    boss_mq:now("")),
-		    case boss_mq:push(?make_friend_channel_syn ++ Who, Msg) of
+		    case boss_mq:push(?date_channel_syn ++ Who, Msg) of
 			undefined ->
 			    {json, [{error, "Fatal"}]};
 			{ok, _} ->
@@ -67,17 +73,18 @@ syn('POST', [What], User) ->
 
 syn('GET', [What], User) ->
     case What of
-	"make_friend" ->
-	    case boss_mq:poll(?make_friend_channel_syn ++ User:name()) of
+	"date" ->
+	    case boss_mq:poll(?date_channel_syn ++ User:name()) of
 		{error, Reason} ->
 		    {json, [{error, Reason}]};
 		{ok, Time, Messages} ->
 		    Results = lists:map(fun(Message) ->
 						[{who, Message:from()},
-						   {time, Message:time()}]
+						 {type, Message:message()},
+						 {time, Message:time()}]
 					end, Messages),
 		    {json, [{error, "OK"},
-			    {make_friend_syn, Results}
+			    {date_syn, Results}
 			   ]}
 	    end;
 	_ ->
@@ -88,20 +95,25 @@ syn(_, [What], User) ->
     {json, [{error, "Not supported"}]}.
 
 ack('POST', [What], User) ->
-    case Req:post_param("who") of
+    case Req:param("who") of
 	undefined ->
 	    {json, [{error, "Need who"}]};
 	Who ->
 	    case What of
-		"make_friend" ->
+		"date" ->
+		    case Req:param("type") of
+			undefined ->
+			    DateType = "moive";
+			Type ->
+			    DateType = Type
+		    end,
 		    Msg = message:new(
-			    Who, ?make_friend_ack,
+			    Who, DateType,
 			    boss_mq:now("")),
-		    case boss_mq:push(?make_friend_channel_ack ++ Who, Msg) of
+		    case boss_mq:push(?date_channel_ack ++ Who, Msg) of
 			undefined ->
 			    {json, [{error, "Fatal"}]};
 			{ok, _} ->
-			    %
 			    {json, [{error, "OK"}]}			
 		    end;
 		_ ->
@@ -111,17 +123,18 @@ ack('POST', [What], User) ->
 
 ack('GET', [What], User) ->
     case What of
-	"make_friend" ->
-	    case boss_mq:poll(?make_friend_channel_ack ++ User:name()) of
+	"date" ->
+	    case boss_mq:poll(?date_channel_ack ++ User:name()) of
 		{error, Reason} ->
 		    {json, [{error, Reason}]};
 		{ok, Time, Messages} ->
 		    Results = lists:map(fun(Message) ->
 						[{who, Message:from()},
+						 {type, Message:message()},
 						 {time, Message:time()}]
 					end, Messages),
 		    {json, [{error, "OK"},
-			    {make_friend_ack, Results}
+			    {date_ack, Results}
 			   ]}
 	    end;
 	_ ->
