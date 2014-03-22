@@ -46,7 +46,24 @@ profile('GET', [], User) ->
     %%	   ]};
 
 profile('PUT', [], User) ->
-    {json, [{error, "OK"}]};
+    case Req:param("password") of
+	undefined ->
+	    {json, [{error, "Need password"}]};
+	Password ->
+	    Shadow = utils:shadow_password(Password),
+	    NewUser = User:set(password, Shadow),
+	    case NewUser:save() of
+		{error, [ErrorMessages]} ->
+		    {json, [{error, ErrorMessages}]};
+		{ok, _}  ->
+		    case boss_session:delete_session(SessionID) of
+			{error, Reason} ->
+			    {json, [{error, Reason}]};
+			ok ->
+			    {json, [{error, "OK"}]}
+		    end
+	    end
+    end;
 
 profile(_, [], User) ->
     {json, [{error, "Not support"}]}.
@@ -123,19 +140,19 @@ account('PUT', [Id], User) ->
 	    end,
 	    case Req:param("refresh_token") of
 		undefined ->
-		    NewRefreshTokenAttr = {};		
+		    NewRefreshTokenAttr = {};
 		RefreshToken ->
 		    NewRefreshTokenAttr = {refresh_token, RefreshToken}
 	    end,
 	    case Req:param("access_token") of
-		undefined -> 
-		    NewAccessTokenAttr = {};		
+		undefined ->
+		    NewAccessTokenAttr = {};
 		AccessToken ->
 		    NewAccessTokenAttr = {access_token, AccessToken}
 	    end,
 	    case Req:param("expires_in") of
 		undefined ->
-		    NewExpiresInAttr = {};		
+		    NewExpiresInAttr = {};
 		ExpiresIn ->
 		    NewExpiresInAttr = {expires_in, ExpiresIn}
 	    end,
