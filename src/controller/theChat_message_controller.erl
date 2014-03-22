@@ -114,7 +114,7 @@ ack('POST', [What], User) ->
 			undefined ->
 			    {json, [{error, "Fatal"}]};
 			{ok, _} ->
-			    {json, [{error, "OK"}]}			
+			    {json, [{error, "OK"}]}
 		    end;
 		_ ->
 		    {json, [{error, "Not implemented"}]}

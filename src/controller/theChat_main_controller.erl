@@ -4,7 +4,7 @@
 before_(_) ->
     utils:require_login(SessionID).
 
-logout('POST', [], User) ->
+logout('POST', [], _) ->
     case boss_session:delete_session(SessionID) of
 	ok ->
 	    {json, [{error, "OK"}]};
@@ -12,7 +12,7 @@ logout('POST', [], User) ->
 	    {json, [{error, Reason}]}
     end;
 
-logout(_, [], User) ->
+logout(_, [], _) ->
     {json, [{error, "Not supported"}]}.
 
 % delete user
@@ -24,7 +24,7 @@ deregister('DELETE', [], User) ->
 	    {json, [{error, Reason}]}
     end;
 
-deregister(_, [], User) ->
+deregister(_, [], _) ->
     {json, [{error, "Not supported"}]}.
 
 profile('GET', [], User) ->
@@ -230,5 +230,64 @@ account('DELETE', [Id], User) ->
     end;
 
 %% not impl
-account(_, [], User) ->
+account(_, [], _) ->
+    {json, [{error, "Not supported"}]}.
+
+update('POST', [Id], User) ->
+    %% {json, [{error, Req:request_body()}]};
+    case User:first_owned_account([{id, 'equals', Id}]) of
+	undefined ->
+	    {json, [{error, "Bad id"}]};
+	_ ->
+	    Json = jsx:decode(Req:request_body()),
+	    case lists:all(fun(Name) ->
+				   OtherNakama = other_nakama:new(id, Id, Name),
+				   case OtherNakama:save() of
+				       {error, _} ->
+					   false;
+				       {ok, _}  ->
+					   true
+				   end
+			   end,
+			   Json) of
+		false ->
+		    {json, [{error, "Create other account error"}]};
+		true ->
+		    {json, [{error, Json}]}
+	    end
+    end;
+    %% case Req:param("friends") of
+    %%	undefined ->
+    %%	    {json, [{error, "Need friends"}]};
+    %%	Friends ->
+    %%	    %Json = jsx:decode(Friends),
+    %%	    {json, [{error, Friends}]}
+    %% end;
+
+update(_, [Id], _) ->
+    {json, [{error, "Not supported"}]}.
+
+nakama('GET', [Id], User) ->
+    case User:nakamas() of
+	[] ->
+	    {json, [{error, "Empty"}]};
+	Nakamas ->
+	    case Id of
+		"all" ->
+		    {json, [{error, "Ok"},
+			    {nakamas, Nakamas}
+			   ]};
+		_ ->
+		    case User:first_nakama([{id, 'equals', Id}]) of
+			undefined ->
+			    {json, [{error, "Bad id"}]};
+			Nakama ->
+			    {json, [{error, "OK"},
+				    {nakama, Nakama}
+				   ]}
+		    end
+	    end
+    end;
+
+nakama(_,[Id], _) ->
     {json, [{error, "Not supported"}]}.
