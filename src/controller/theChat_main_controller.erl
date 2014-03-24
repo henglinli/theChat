@@ -239,21 +239,55 @@ update('POST', [Id], User) ->
 	undefined ->
 	    {json, [{error, "Bad id"}]};
 	_ ->
-	    Json = jsx:decode(Req:request_body()),
-	    case lists:all(fun(Name) ->
-				   OtherNakama = other_nakama:new(id, Id, Name),
-				   case OtherNakama:save() of
-				       {error, _} ->
-					   false;
-				       {ok, _}  ->
-					   true
-				   end
-			   end,
-			   Json) of
-		false ->
-		    {json, [{error, "Create other account error"}]};
-		true ->
-		    {json, [{error, Json}]}
+	    case jsx:decode(Req:request_body()) of
+		{incomplete, _} ->
+		    {json, [{error, "Bad request body"}]};
+		[] ->
+		    {json, [{error, "Bad request body"}]};
+		Json ->
+		    %% find each name in other_nakama
+		    lists:foreach(fun(X) ->
+		    			  case boss_db:find(other_nakama, [{name, 'equals', Name}]) of
+		    			      {error, Reason} ->
+		    			  	  error_logger:info_msg(Reason);
+		    			      OtherNakamas ->
+		    			  	  lists:foreach(fun(OtherNakama) ->
+		    			  				Dads = OtherNakama:belongs_to(),
+		    			  				lists:foreach(fun(Dad) ->
+		    			  						      {_, Account} = Dad,
+		    			  						      Yuzas = Account:belongs_to(),
+		    			  						      lists:foreach(fun(Yuza) ->
+		    			  									    NewNakama = nakama:new(id, User:id(), Yuza:name()),
+		    			  									    case NewNakama:save() of
+		    			  										{ok, _} ->
+		    			  										    ok;
+		    			  										{error, [ErrorMessages]} ->
+		    			  										    error_logger:info_msg(ErrorMessages)
+		    			  									    end
+		    			  								    end,
+		    			  								    Yuzas)
+		    			  					      end,
+		    			  					      Dads)
+		    			  			end,
+		    			  			OtherNakamas)
+		    			  end
+		    		  end,
+		    		  Json),
+		    case lists:all(fun(Name) ->
+					   OtherNakama = other_nakama:new(id, Id, Name),
+					   case OtherNakama:save() of
+					       {error, _} ->
+						   false;
+					       {ok, _}  ->
+						   true
+					   end
+				   end,
+				   Json) of
+			false ->
+			    {json, [{error, "Create friend error"}]};
+			true ->
+			    {json, [{error, Json}]}
+		    end
 	    end
     end;
     %% case Req:param("friends") of
