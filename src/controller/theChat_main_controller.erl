@@ -70,7 +70,7 @@ profile(_, [], User) ->
 
 %% create
 account('POST', [], User) ->
-    case Req:param("type") of
+    case Req:post_param("type") of
 	undefined ->
 	    {json, [{error, "Need type"}]};
 	Type ->
@@ -81,19 +81,19 @@ account('POST', [], User) ->
 		false ->
 		    {json, [{error, "Not supported type"}]};
 		true ->
-		    case Req:param("name") of
+		    case Req:post_param("name") of
 			undefined ->
 			    {json, [{error, "Need type"}]};
 			Name ->
-			    case Req:param("access_token") of
+			    case Req:post_param("access_token") of
 				undefined ->
 				    {json, [{error, "Need access token"}]};
 				AccessToken ->
-				    case Req:param("refresh_token") of
+				    case Req:post_param("refresh_token") of
 					undefined ->
 					    {json, [{error, "Need refresh token"}]};
 					RefreshToken ->
-					    case Req:param("expires_in") of
+					    case Req:post_param("expires_in") of
 						undefined ->
 						    {json, [{error, "Need expires in"}]};
 						ExpiresIn ->
