@@ -34,7 +34,6 @@ poll('GET', [], User) ->
 	    {json, [{error, Reson}]};
 	{ok, Time, Messages} ->
 	    {json, [{error, "OK"},
-		    {size, Time},
 		    {messages, Messages}]}
     end;
 
