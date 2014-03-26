@@ -1,17 +1,14 @@
 -module(theChat_user_controller, [Req, SessionID]).
 -compile(export_all).
 
-login('GET', []) ->
-    {json, [{error, "Please login"}]};
-
 login('POST', []) ->
-    Name = Req:post_param("name"),
+    Name = Req:param("name"),
     case boss_db:find_first(yuza, [{name, 'equals', Name}]) of
 	undefined ->
 	    {json, [{error, "Bad name"}]};
 	User ->
 	    case utils:check_password(User:password(),
-					 Req:post_param("password")) of
+					 Req:param("password")) of
 		true ->
 		    case boss_session:set_session_data(SessionID,
 						       user_id, User:id()) of
@@ -26,18 +23,18 @@ login('POST', []) ->
     end;
 
 login(_, []) ->
-    {json, [{error, "Not supported"}]}.
+    {json, [{error, "Please login"}]}.
 
 register('POST', []) ->
-    case Req:post_param("email") of 
+    case Req:param("email") of 
 	undefined -> 
 	    {json, [{error, "Need email"}]};
 	Email ->
-	    case Req:post_param("name") of
+	    case Req:param("name") of
 		undefined ->
 		    {json, [{error, "Need name"}]};
 		Name ->
-		    case Req:post_param("password") of
+		    case Req:param("password") of
 			undefined -> 
 			    {json, [{error, "Need password"}]};
 			Password ->			    

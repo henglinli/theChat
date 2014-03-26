@@ -2,7 +2,7 @@
 -compile(export_all).
 
 version(_, []) ->
-    {json, [{version, "2014-03-17"},
+    {json, [{version, "2014-03-26"},
 	    {copyright, "nil"},
 	    {author, "henglinli@gmail.com"}]}.
 

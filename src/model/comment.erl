@@ -1,10 +1,10 @@
 -module(comment, [Id,
 		  YuzaId,
-		  YuzaName,
+		  From,
 		  Comment,
-		  FromId,
-		  FromWhich,		  
-		  FromWho
+		  FromWho,
+		  FromWhich,
+		  ToWho
 		 ]).
 %
 -compile(export_all).

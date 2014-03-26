@@ -46,7 +46,7 @@ profile('GET', [], User) ->
     %%	   ]};
 
 profile('PUT', [], User) ->
-    case Req:param("password") of
+    case Req:post_param("password") of
 	undefined ->
 	    {json, [{error, "Need password"}]};
 	Password ->
@@ -70,7 +70,7 @@ profile(_, [], User) ->
 
 %% create
 account('POST', [], User) ->
-    case Req:post_param("type") of
+    case Req:param("type") of
 	undefined ->
 	    {json, [{error, "Need type"}]};
 	Type ->
@@ -81,19 +81,19 @@ account('POST', [], User) ->
 		false ->
 		    {json, [{error, "Not supported type"}]};
 		true ->
-		    case Req:post_param("name") of
+		    case Req:param("name") of
 			undefined ->
 			    {json, [{error, "Need type"}]};
 			Name ->
-			    case Req:post_param("access_token") of
+			    case Req:param("access_token") of
 				undefined ->
 				    {json, [{error, "Need access token"}]};
 				AccessToken ->
-				    case Req:post_param("refresh_token") of
+				    case Req:param("refresh_token") of
 					undefined ->
 					    {json, [{error, "Need refresh token"}]};
 					RefreshToken ->
-					    case Req:post_param("expires_in") of
+					    case Req:param("expires_in") of
 						undefined ->
 						    {json, [{error, "Need expires in"}]};
 						ExpiresIn ->
@@ -109,8 +109,8 @@ account('POST', [], User) ->
 							{error, [ErrorMessages]} ->
 							    {json, [{error, ErrorMessages}]};
 							{ok, SavedAccount} ->
-							    {json, [{error, "OK"},
-								    {account, SavedAccount:attributes()}
+							    {json, [{error, "OK"}
+								    %{account, SavedAccount:attributes()}
 								   ]}
 						    end
 					    end
@@ -133,10 +133,10 @@ account('PUT', [Id], User) ->
 		    NewTypeAttr = {type, Type}
 	    end,
 	    case Req:param("name") of
-		undefined ->
-		    NewNameAttr = {};
-		Name ->
-		    NewNameAttr = {name, Name}
+	    	undefined ->
+	    	    NewNameAttr = {};
+	    	Name ->
+	    	    NewNameAttr = {name, Name}
 	    end,
 	    case Req:param("refresh_token") of
 		undefined ->
@@ -169,7 +169,9 @@ account('PUT', [Id], User) ->
 account('GET', [Id], User) ->
     case User:owned_accounts() of
 	[] ->
-	    {json, [{error, "Empty"}]};
+	    {json, [{error, "OK"},
+		    {owned_accounts, []}
+		   ]};
 	Accounts ->
 	    case Id of
 		"all" ->
