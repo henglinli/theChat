@@ -6,4 +6,4 @@ deps
 erl_crash.dump
 *~
 log/*
-Mnesia.theChat@localhost
+Mnesia.*

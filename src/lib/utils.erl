@@ -20,3 +20,16 @@ require_login(SessionID) ->
 	{error, _} ->
 	    {redirect, "/user/login"}
     end.
+
+remote_login(Name, Password) ->
+    case boss_db:find_first(yuza, [{name, 'equals', Name}]) of
+	undefined ->
+	    {error, "Bad name"};
+	User ->
+	    case check_password(User:password(), Password) of
+		false ->
+		    {error, "Bad password"};
+		true ->
+		    ok
+	    end
+    end.
