@@ -77,7 +77,7 @@ account('POST', [], User) ->
 	    case lists:any(fun(TheType) ->
 				   Type =:= TheType
 			   end,
-			   ["sina", "tencent", "douban", "renren"]) of
+			   utils:account_types()) of
 		false ->
 		    {json, [{error, "Not supported type"}]};
 		true ->

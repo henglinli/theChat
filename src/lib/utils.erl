@@ -12,7 +12,7 @@ require_login(SessionID) ->
     case boss_session:get_session_data(SessionID, user_id) of
 	UserID ->
 	    case boss_db:find(UserID) of
-		{error, _} ->		    
+		{error, _} ->
 		    {redirect, "/user/login"};
 		User ->
 		    {ok , User}
@@ -33,3 +33,21 @@ remote_login(Name, Password) ->
 		    ok
 	    end
     end.
+
+-spec syn_channel(atom(), string()) -> string().
+syn_channel(date, Name) ->
+    "DATE" + Name;
+
+syn_channel(_, _) ->
+    "undefined".
+
+-spec ack_channel(atom(), string()) -> string().
+ack_channel(date, Name) ->
+    "ETAD" + Name;
+
+ack_channel(_, _) ->
+    "undefined".
+
+-spec account_types() -> [string()].
+account_types() ->
+    ["sina", "tencent", "douban", "renren"].

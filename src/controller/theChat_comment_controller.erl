@@ -17,7 +17,7 @@ date('POST', [To], User) ->
 		    case lists:any(fun(TheType) ->
 					   Type =:= TheType
 				   end,
-				   ["sina", "tencent", "douban", "renren"]) of
+				   utils:account_types()) of
 			false ->
 			    {json, [{error, "Not supported type"}]};
 			true ->
@@ -86,7 +86,7 @@ date('DELETE', [To], User) ->
 		    case lists:any(fun(TheType) ->
 					   Type =:= TheType
 				   end,
-				   ["sina", "tencent", "douban", "renren"]) of
+				   utils:account_types()) of
 			false ->
 			    {json, [{error, "Not supported type"}]};
 			true ->
@@ -161,7 +161,7 @@ dated('DELETE', [From], User) ->
 		    case lists:any(fun(TheType) ->
 					   Type =:= TheType
 				   end,
-				   ["sina", "tencent", "douban", "renren"]) of
+				   utils:account_types()) of
 			false ->
 			    {json, [{error, "Not supported type"}]};
 			true ->

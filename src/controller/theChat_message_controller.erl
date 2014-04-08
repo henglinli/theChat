@@ -1,6 +1,5 @@
 -module(theChat_message_controller, [Req, SessionID]).
 -compile(export_all).
--include("protocol.hrl").
 
 before_(_) ->
     utils:require_login(SessionID).
@@ -59,7 +58,8 @@ syn('POST', [What], User) ->
 		    Msg = message:new(
 			    Who, DateType,
 			    boss_mq:now("")),
-		    case boss_mq:push(?date_channel_syn ++ Who, Msg) of
+		    Channel = utils:syn_channel(date, Who),
+		    case boss_mq:push(Channel, Msg) of
 			undefined ->
 			    {json, [{error, "Fatal"}]};
 			{ok, _} ->
@@ -73,7 +73,8 @@ syn('POST', [What], User) ->
 syn('GET', [What], User) ->
     case What of
 	"date" ->
-	    case boss_mq:poll(?date_channel_syn ++ User:name()) of
+	    Channel = utils:syn_channel(date, User:name()),
+	    case boss_mq:poll(Channel) of
 		{error, Reason} ->
 		    {json, [{error, Reason}]};
 		{ok, Time, Messages} ->
@@ -109,7 +110,8 @@ ack('POST', [What], User) ->
 		    Msg = message:new(
 			    Who, DateType,
 			    boss_mq:now("")),
-		    case boss_mq:push(?date_channel_ack ++ Who, Msg) of
+		    Channel = utils:ack_channel(date, Who),
+		    case boss_mq:push(Channel, Msg) of
 			undefined ->
 			    {json, [{error, "Fatal"}]};
 			{ok, _} ->
@@ -123,7 +125,8 @@ ack('POST', [What], User) ->
 ack('GET', [What], User) ->
     case What of
 	"date" ->
-	    case boss_mq:poll(?date_channel_ack ++ User:name()) of
+	    Channel = utils:ack_channel(date, User:name()),
+	    case boss_mq:poll(Channel) of
 		{error, Reason} ->
 		    {json, [{error, Reason}]};
 		{ok, Time, Messages} ->
