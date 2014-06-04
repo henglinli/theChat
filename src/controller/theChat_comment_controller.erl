@@ -10,43 +10,48 @@ date('POST', [To], User) ->
 	{error, Reason} ->
 	    {json, [{error, Reason}]};
 	Yuza ->
-	    case Req:post_param("type") of
+	    case Req:post_param("date_type") of
 		undefined ->
-		    {json, [{error, "Need type"}]};
-		Type ->
-		    case lists:any(fun(TheType) ->
-					   Type =:= TheType
-				   end,
-				   utils:account_types()) of
-			false ->
-			    {json, [{error, "Not supported type"}]};
-			true ->
-			    case Req:post_param("from") of
-				undefined ->
-				    {json, [{error, "Need from"}]};
-				FromWho ->
-				    case User:owned_accounts([{name, 'equals', FromWho}]) of
-					{error, Reason} ->
-					    {json, [{error, Reason}]};
-					[] ->
-					    {json, [{error, "Bad from id"}]};
-					_ ->
-					    case Req:post_param("to") of
-						undefined ->
-						    {json, [{error, "Need to"}]};
-						ToWho ->
-						    case Yuza:owned_accounts([{name, 'equals', ToWho}]) of
-							{error, Reason} ->
-							    {json, [{error, Reason}]};
-							[] ->
-							    {json, [{error, "Bad to id"}]};
-							_ -> 
-							    NewComment = comment:new(id, Yuza:id(), User:id(), "date", FromWho, Type, ToWho),
-							    case NewComment:save() of
-								{error, [ErrorMessages]} ->
-								    {json, [{error, ErrorMessages}]};
-								{ok, _} ->
-								    {json, [{error, "OK"}]}
+		    {json, [{error, "Need date type"}]};
+		DateType ->
+		    case Req:post_param("account_type") of
+			undefined ->
+			    {json, [{error, "Need account type"}]};
+			AccountType ->
+			    case lists:any(fun(TheType) ->
+						   AccountType =:= TheType
+					   end,
+					   utils:account_types()) of
+				false ->
+				    {json, [{error, "Not supported type"}]};
+				true ->
+				    case Req:post_param("from") of
+					undefined ->
+					    {json, [{error, "Need from"}]};
+					FromWho ->
+					    case User:owned_accounts([{name, 'equals', FromWho}]) of
+						{error, Reason} ->
+						    {json, [{error, Reason}]};
+						[] ->
+						    {json, [{error, "Bad from id"}]};
+						_ ->
+						    case Req:post_param("to") of
+							undefined ->
+							    {json, [{error, "Need to"}]};
+							ToWho ->
+							    case Yuza:owned_accounts([{name, 'equals', ToWho}]) of
+								{error, Reason} ->
+								    {json, [{error, Reason}]};
+								[] ->
+								    {json, [{error, "Bad to id"}]};
+								_ ->
+								    NewComment = comment:new(id, Yuza:id(), User:id(), DateType, FromWho, AccountType, ToWho),
+								    case NewComment:save() of
+									{error, [ErrorMessages]} ->
+									    {json, [{error, ErrorMessages}]};
+									{ok, _} ->
+									    {json, [{error, "OK"}]}
+								    end
 							    end
 						    end
 					    end
@@ -120,9 +125,9 @@ date('DELETE', [To], User) ->
 								   Comments) of
 							false ->
 							    {json, [{error, "delete comment error"}]};
-									       
+
 							true ->
-							    {json, [{error, "OK"}]}  
+							    {json, [{error, "OK"}]}
 						    end
 					    end
 				    end
@@ -138,7 +143,8 @@ date(_, _, _) ->
 dated('GET', [], User) ->
     Comments = User:comments(),
     Dates = lists:map(fun(Comment) ->
-			      [{type, Comment:from_which()},
+			      [{date_type, Comment:comment()},
+			       {account_type, Comment:from_which()},
 			       {from, Comment:from_who()},
 			       {to, Comment:to_who()}
 			      ]
@@ -193,9 +199,9 @@ dated('DELETE', [From], User) ->
 								   Comments) of
 							false ->
 							    {json, [{error, "delete comment error"}]};
-									       
+
 							true ->
-							    {json, [{error, "OK"}]}  
+							    {json, [{error, "OK"}]}
 						    end
 					    end
 				    end

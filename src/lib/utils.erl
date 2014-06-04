@@ -36,14 +36,14 @@ remote_login(Name, Password) ->
 
 -spec syn_channel(atom(), string()) -> string().
 syn_channel(date, Name) ->
-    "DATE" + Name;
+    "DATE" ++ Name;
 
 syn_channel(_, _) ->
     "undefined".
 
 -spec ack_channel(atom(), string()) -> string().
 ack_channel(date, Name) ->
-    "ETAD" + Name;
+    "ETAD" ++ Name;
 
 ack_channel(_, _) ->
     "undefined".
@@ -51,3 +51,21 @@ ack_channel(_, _) ->
 -spec account_types() -> [string()].
 account_types() ->
     ["sina", "tencent", "douban", "renren"].
+
+-spec make_nakama(term(), term()) -> boolean().
+make_nakama(Me, You) ->     
+    MyNewNakama = nakama:new(id, Me:id(), You:name()),
+    case MyNewNakama:save() of
+	{ok, _} ->
+	    NewNakama = nakama:new(id, You:id(), Me:name()),
+	    case NewNakama:save() of
+		{ok, _} ->
+		    true;
+		{error, [ErrorMessages]} ->
+		    lager:error("boss_db save error: ~p", [ErrorMessages]),
+		    false
+	    end;
+	{error, [ErrorMessages]} ->
+	    lager:error("boss_db save error: ~p", [ErrorMessages]),
+	    false
+    end.

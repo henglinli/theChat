@@ -13,8 +13,8 @@ push('POST', [], User) ->
 		undefined ->
 		    {json, [{error, "fatal"}]};
 		Message ->
-		    Msg = message:new(
-			    Who, Message, boss_mq:now(User:name())),
+		    From = User:name(),
+		    Msg = message:new(From, Message, boss_mq:now(From)),
 		    case boss_mq:push(Who, Msg) of
 			undefined ->
 			    {json, [{error, "fatal"}]};
@@ -38,9 +38,6 @@ poll('GET', [], User) ->
 
 poll(_, [], User) ->
     {json, [{error, "Not support"}]}.
-
-hello(_, [], User) ->
-    {json, [{error, "hello"}]}.
 
 syn('POST', [What], User) ->
     case Req:param("who") of

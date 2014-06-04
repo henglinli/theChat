@@ -133,10 +133,10 @@ account('PUT', [Id], User) ->
 		    NewTypeAttr = {type, Type}
 	    end,
 	    case Req:param("name") of
-	    	undefined ->
-	    	    NewNameAttr = {};
-	    	Name ->
-	    	    NewNameAttr = {name, Name}
+		undefined ->
+		    NewNameAttr = {};
+		Name ->
+		    NewNameAttr = {name, Name}
 	    end,
 	    case Req:param("refresh_token") of
 		undefined ->
@@ -235,60 +235,115 @@ account('DELETE', [Id], User) ->
 account(_, [], _) ->
     {json, [{error, "Not supported"}]}.
 
-update('POST', [Id], User) ->
+hello('POST', [], User) ->
+     case Req:param("nakamas") of
+	 undefined ->
+	     {json, [{error, "Need nakamas"}]};
+	 Nakamas ->
+	     Friends = erlang:list_to_binary(Nakamas),
+	     {json, [{error, "OK"},
+		     {hello, jsx:decode(Friends)}]}
+     end;
+
+hello(_, [], _) ->
+     {json, [{error, "Not supported"}]}.
+
+friend('GET', [Id], User) ->
+    case Id of
+	"all" ->
+	    %% {json, [{error, "OK"}]};
+	    case User:owned_accounts() of
+		[] ->
+		    {json, [{error, "Empty"}]};
+		Accounts ->
+		    Attributes = lists:map(fun(Account) ->
+						   OtherNakamas = lists:map(fun(OtherNakama) ->
+										    OtherNakama:attributes()
+									    end,
+									    Account:other_nakamas()),
+						   lists:append([Account:attributes(), [{other_nakamas, OtherNakamas}]])
+					   end,
+					   Accounts),
+		    {json, [{error, "Ok"},
+			    {owned_accounts, Attributes}
+			   ]};
+		Other ->
+		    {json, [{error, Other}]}
+	    end;
+	_ ->
+	    case User:first_owned_account([{id, 'equals', Id}]) of
+		undefined ->
+		    {json, [{error, "Bad id"}]};
+		OwnedAccount ->
+		    {json, [{error, "OK"}]}
+	    end
+    end;
+
+friend('POST', [Id], User) ->
     %% {json, [{error, Req:request_body()}]};
     case User:first_owned_account([{id, 'equals', Id}]) of
 	undefined ->
 	    {json, [{error, "Bad id"}]};
-	_ ->
-	    case jsx:decode(Req:request_body()) of
-		{incomplete, _} ->
-		    {json, [{error, "Bad request body"}]};
-		[] ->
-		    {json, [{error, "Bad request body"}]};
-		Json ->
-		    %% find each name in other_nakama
-		    lists:foreach(fun(Name) ->
-					  case boss_db:find(other_nakama, [{name, 'equals', erlang:binary_to_list(Name)}]) of
-					      {error, Reason} ->
-						  error_logger:info_msg(Reason);
-					      OtherNakamas ->
-						  lists:foreach(fun(OtherNakama) ->
-									Dads = OtherNakama:belongs_to(),
-									lists:foreach(fun(Dad) ->
-											      {_, Account} = Dad,
-											      Yuzas = Account:belongs_to(),
-											      lists:foreach(fun(Yuza) ->
-														    NewNakama = nakama:new(id, User:id(), Yuza:name()),
-														    case NewNakama:save() of
-															{ok, _} ->
-															    ok;
-															{error, [ErrorMessages]} ->
-															    error_logger:info_msg(ErrorMessages)
-														    end
-													    end,
-													    Yuzas)
-										      end,
-										      Dads)
-								end,
-								OtherNakamas)
-					  end
-				  end,
-				  Json),
-		    case lists:all(fun(Name) ->
-					   OtherNakama = other_nakama:new(id, Id, Name),
-					   case OtherNakama:save() of
-					       {error, _} ->
-						   false;
-					       {ok, _}  ->
-						   true
-					   end
-				   end,
-				   Json) of
-			false ->
-			    {json, [{error, "Create friend error"}]};
-			true ->
-			    {json, [{error, Json}]}
+	OwnedAccount ->
+	    case Req:param("friends") of
+		undefined ->
+		    {json, [{error, "Need nakamas"}]};
+		Nakamas ->
+		    Friends = erlang:list_to_binary(Nakamas),
+		    case jsx:decode(Friends) of
+			{incomplete, _} ->
+			    {json, [{error, "Bad Nakamas format"}]};
+			[] ->
+			    {json, [{error, "Empty Nakamas"}]};
+			Json ->
+			    lager:info("Json: ~p",[Json]),
+			    lists:foreach(fun(Name) ->
+						  case boss_db:find(owned_account, [{name, 'equals', erlang:binary_to_list(Name)}]) of
+						      {error, Reason} ->
+							  lager:error("boss_db find error: ~p", [Reason]),
+							  false;
+						      [] ->
+							  continue;
+						      OwnedAccounts ->
+							  lists:foreach(fun(OwnedAccount) ->
+										Dads = OwnedAccount:belongs_to(),
+										lists:foreach(fun(Dad) ->
+												      {yuza, Yuza} = Dad,
+												      utils:make_nakama(User, Yuza)
+											      end,
+											      Dads)
+									end,
+									OwnedAccounts)
+						  end
+					  end,
+					  Json),
+			    %% find each name in other_nakama
+			    case lists:all(fun(Name) ->
+						  case boss_db:find(other_nakama, [{name, 'equals', Name},
+										   {owned_account_id, 'equals', Id}]) of
+						      {error, Reason} ->
+							  lager:error("boss_db find error: ~p", [Reason]),
+							  false;
+						      [] ->
+							  lager:info("not found: ~p", [Name]),
+							  NewOtherNakama = other_nakama:new(id, Id, Name),
+							  case NewOtherNakama:save() of
+							      {error, ErrorMessages} ->
+								  lager:error("boss_db save error: ~p", [ErrorMessages]),
+								  false;
+							      {ok, _}  ->
+								  true
+							  end;
+						      OtherNakamas ->
+							  true
+						  end
+					   end,
+					   Json) of
+				false ->
+				    {json, [{error, "Create friend error"}]};
+				true ->
+				    {json, [{error, Json}]}
+			    end
 		    end
 	    end
     end;
@@ -299,8 +354,38 @@ update('POST', [Id], User) ->
     %%	    %Json = jsx:decode(Friends),
     %%	    {json, [{error, Friends}]}
     %% end;
+friend('PUT', [Id], User) ->
+    case User:first_owned_account([{id, 'equals', Id}]) of
+	undefined ->
+	    {json, [{error, "Bad id"}]};
+	OwnedAccountId ->
+	    case jsx:decode(Req:request_body()) of
+		{incomplete, _} ->
+		    {json, [{error, "Bad request body"}]};
+		[] ->
+		    {json, [{error, "Bad request body"}]};
+		Json ->
+		    lager:info("Json: ~p",[Json]),
+		    Json
+	    end
+    end;
 
-update(_, [Id], _) ->
+friend('DELETE', [Id], User) ->
+    case User:first_owned_account([{id, 'equals', Id}]) of
+	undefined ->
+	    {json, [{error, "Bad id"}]};
+	OwnedAccountId ->
+	    case jsx:decode(Req:request_body()) of
+		{incomplete, _} ->
+		    {json, [{error, "Bad request body"}]};
+		[] ->
+		    {json, [{error, "Bad request body"}]};
+		Json ->
+		    Json
+	    end
+    end;
+
+friend(_, [_], _) ->
     {json, [{error, "Not supported"}]}.
 
 nakama('GET', [Id], User) ->
@@ -325,5 +410,5 @@ nakama('GET', [Id], User) ->
 	    end
     end;
 
-nakama(_,[Id], _) ->
+nakama(_,[_], _) ->
     {json, [{error, "Not supported"}]}.
