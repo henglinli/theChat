@@ -16,12 +16,17 @@ logout(_, [], _) ->
     {json, [{error, "Not supported"}]}.
 
 % delete user
-deregister('DELETE', [], User) ->
-    case boss_db:delete(User:id()) of
-	ok ->
-	    {json, [{error, "OK"}]};
-	{error, Reason} ->
-	    {json, [{error, Reason}]}
+deregister('DELETE', [Password], User) ->
+    case utils:check_password(User:password(), Password) of
+	false ->
+	    {json, [{error, "Bad password"}]};
+	true ->
+	    case boss_db:delete(User:id()) of
+		ok ->
+		    {json, [{error, "OK"}]};
+			{error, Reason} ->
+		    {json, [{error, Reason}]}
+	    end
     end;
 
 deregister(_, [], _) ->
@@ -33,17 +38,6 @@ profile('GET', [], User) ->
     {json, [{error, "OK"},
 	    {profile, UserInfo}
 	    ]};
-    %% RegisterTime = User:register_time(),
-    %% Date1970 = {{1970, 1, 1}, {0, 0, 0}},
-    %% Seconds = calendar:datetime_to_gregorian_seconds(RegisterTime) -
-    %%	calendar:datetime_to_gregorian_seconds(Date1970),
-    %% SecondsString = erlang:integer_to_list(Seconds),
-    %% {json, [{error, "OK"},
-    %%	    {id, User:id()},
-    %%	    {email, User:email()},
-    %%	    {name, User:name()},
-    %%	    {register_time, SecondsString}
-    %%	   ]};
 
 profile('PUT', [], User) ->
     case Req:post_param("password") of
@@ -248,145 +242,364 @@ hello('POST', [], User) ->
 hello(_, [], _) ->
      {json, [{error, "Not supported"}]}.
 
-friend('GET', [Id], User) ->
-    case Id of
+friend('GET', [OwnedAccountId], User) ->
+    case OwnedAccountId of
 	"all" ->
 	    %% {json, [{error, "OK"}]};
 	    case User:owned_accounts() of
 		[] ->
 		    {json, [{error, "Empty"}]};
-		Accounts ->
-		    Attributes = lists:map(fun(Account) ->
-						   OtherNakamas = lists:map(fun(OtherNakama) ->
+		OwnedAccounts ->
+		    Attributes = lists:map(fun(OwnedAccount) ->
+						   OtherNakamasAttibutes = lists:map(fun(OtherNakama) ->
 										    OtherNakama:attributes()
 									    end,
-									    Account:other_nakamas()),
-						   lists:append([Account:attributes(), [{other_nakamas, OtherNakamas}]])
+									    OwnedAccount:other_nakamas()),
+						   lists:append([OwnedAccount:attributes(), [{other_nakamas, OtherNakamasAttibutes}]])
 					   end,
-					   Accounts),
+					   OwnedAccounts),
 		    {json, [{error, "Ok"},
 			    {owned_accounts, Attributes}
 			   ]};
-		Other ->
-		    {json, [{error, Other}]}
+		Others ->
+		    {json, [{error, Others}]}
 	    end;
 	_ ->
-	    case User:first_owned_account([{id, 'equals', Id}]) of
+	    case User:first_owned_account([{id, 'equals', OwnedAccountId}]) of
 		undefined ->
 		    {json, [{error, "Bad id"}]};
 		OwnedAccount ->
-		    {json, [{error, "OK"}]}
+		    OtherNakamas = lists:map(fun(OtherNakama) ->
+						     OtherNakama:attributes()
+					     end,
+					     OwnedAccount:other_nakamas()),
+		    Attributes  = lists:append([OwnedAccount:attributes(), [{other_nakamas, OtherNakamas}]]),
+		    {json, [{error, "OK"},
+			    {owned_account, Attributes}
+			   ]};
+		Others ->
+		    {json, [{error, Others}]}
 	    end
     end;
 
-friend('POST', [Id], User) ->
-    %% {json, [{error, Req:request_body()}]};
+%% friend('POST', [Id], User) ->
+%%     %% {json, [{error, Req:request_body()}]};
+%%     case User:first_owned_account([{id, 'equals', Id}]) of
+%%	undefined ->
+%%	    {json, [{error, "Bad id"}]};
+%%	OwnedAccount ->
+%%	    case Req:param("friends") of
+%%		undefined ->
+%%		    {json, [{error, "Need friends"}]};
+%%		Nakamas ->
+%%		    Friends = erlang:list_to_binary(Nakamas),
+%%		    case jsx:decode(Friends) of
+%%			{incomplete, _} ->
+%%			    {json, [{error, "Bad friends format"}]};
+%%			[] ->
+%%			    {json, [{error, "Empty friends"}]};
+%%			Json ->
+%%			    lager:info("Json: ~p",[Json]),
+%%			    lists:foreach(fun(Name) ->
+%%						  case boss_db:find(owned_account, [{name, 'equals', erlang:binary_to_list(Name)}]) of
+%%						      {error, Reason} ->
+%%							  lager:error("boss_db find error: ~p", [Reason]),
+%%							  false;
+%%						      [] ->
+%%							  continue;
+%%						      OwnedAccounts ->
+%%							  lists:foreach(fun(OwnedAccount) ->
+%%										Dads = OwnedAccount:belongs_to(),
+%%										lists:foreach(fun(Dad) ->
+%%												      {yuza, Yuza} = Dad,
+%%												      utils:make_nakama(User, Yuza)
+%%											      end,
+%%											      Dads)
+%%									end,
+%%									OwnedAccounts)
+%%						  end
+%%					  end,
+%%					  Json),
+%%			    %% find each name in other_nakama
+%%			    case lists:all(fun(Name) ->
+%%						  case boss_db:find(other_nakama, [{name, 'equals', erlang:binary_to_list(Name)},
+%%										   {owned_account_id, 'equals', Id}]) of
+%%						      {error, Reason} ->
+%%							  lager:error("boss_db find error: ~p", [Reason]),
+%%							  false;
+%%						      [] ->
+%%							  lager:info("not found: ~p", [Name]),
+%%							  NewOtherNakama = other_nakama:new(id, Id, Name),
+%%							  case NewOtherNakama:save() of
+%%							      {error, ErrorMessages} ->
+%%								  lager:error("boss_db save error: ~p", [ErrorMessages]),
+%%								  false;
+%%							      {ok, _}  ->
+%%								  true
+%%							  end;
+%%						      OtherNakamas ->
+%%							  true
+%%						  end
+%%					   end,
+%%					   Json) of
+%%				false ->
+%%				    {json, [{error, "Create friend error"}]};
+%%				true ->
+%%				    {json, [{error, Json}]}
+%%			    end
+%%		    end
+%%	    end
+%%     end;
+
+%% friend('PUT', [Id], User) ->
+%%     case User:first_owned_account([{id, 'equals', Id}]) of
+%%	undefined ->
+%%	    {json, [{error, "Bad id"}]};
+%%	OwnedAccount ->
+%%	     case Req:param("friends") of
+%%		undefined ->
+%%		    {json, [{error, "Need friends"}]};
+%%		Nakamas ->
+%%		    Friends = erlang:list_to_binary(Nakamas),
+%%		    case jsx:decode(Friends) of
+%%			{incomplete, _} ->
+%%			    {json, [{error, "Bad friends format"}]};
+%%			[] ->
+%%			    {json, [{error, "Empty friends"}]};
+%%			Json ->
+%%			    lager:info("Json: ~p",[Json]),
+%%			    NewFriends = lists:filter(fun(Name) ->
+%%							      case boss_db:find(owned_account, [{name, 'equals', erlang:binary_to_list(Name)}]) of
+%%								  {error, Reason} ->
+%%								      lager:error("boss_db find error: ~p", [Reason]),
+%%								      false;
+%%								  [] ->
+%%								      %% no firends
+%%								      true;
+%%								  OwnedAccounts ->
+%%								      lists:foreach(fun(OwnedAccount) ->
+%%											    case OwnedAccount:id() of
+%%												Id ->
+%%												    %% is me
+%%												    false;
+%%												_ ->
+%%												    %% make friend
+%%												    Dads = OwnedAccount:belongs_to(),
+%%												    lists:all(fun(Dad) ->
+%%														      {yuza, Yuza} = Dad,
+%%														      utils:make_nakama(User, Yuza)
+%%													      end,
+%%													      Dads)
+%%											    end
+%%										    end,
+%%										    OwnedAccounts)
+%%							      end
+%%						      end,
+%%						      Json),
+%%			    case lists:all(fun(Friend) ->
+%%						   NewOtherNakama = other_nakama:new(id, Id, Friend),
+%%						   case NewOtherNakama:save() of
+%%						       {error, ErrorMessages} ->
+%%							   lager:error("boss_db save error: ~p", [ErrorMessages]),
+%%							   false;
+%%						       {ok, _}  ->
+%%							   true
+%%						   end
+%%					   end,
+%%					   NewFriends) of
+%%				false ->
+%%				    {json, [{error, "add friend error"}]};
+%%				true ->
+%%				    {json, [{error, NewFriends}]}
+%%			    end
+%%		    end
+%%	     end
+%%     end;
+
+friend('PUT', [OwnedAccountId, OtherNakamaName], User) ->
+    case User:first_owned_account([{id, 'equals', OwnedAccountId}]) of
+	undefined ->
+	    {json, [{error, "Bad id"}]};
+	OwnedAccount ->
+	    case OwnedAccount:first_other_nakama([{name, 'equals', OtherNakamaName}]) of
+		undefined -> %% not found and can add
+		    NewOtherNakama = other_nakama:new(id, OwnedAccountId, OtherNakamaName),
+		    case NewOtherNakama:save() of
+			{error, ErrorMessages} ->
+			    lager:error("boss_db save error: ~p", [ErrorMessages]),
+			    {json, [{error, ErrorMessages}]};
+			{ok, SavedOtherNakama}  ->
+			    case boss_db:find(owned_account, [{name, 'equals', OtherNakamaName},
+							      {yuza_id, 'not_equals', User:id()}]) of
+				{error, Reason} ->
+				    lager:error("boss_db find error: ~p", [Reason]),
+				    {json, [{error, Reason}]};
+				[] ->
+				    {json, [{error, "Done"},
+					    {result, SavedOtherNakama:attributes()}]};
+				OwnedAccounts -> %% found friend
+				   case lists:all(fun(TheOwnedAccount) ->
+							     %% make friend
+							     Dads = TheOwnedAccount:belongs_to(),
+							     lists:all(fun(Dad) ->
+									       {yuza, Yuza} = Dad,
+									       utils:make_nakama(User, Yuza)
+								       end,
+								       Dads)
+						     end,
+						     OwnedAccounts) of
+				       false ->
+					   {json, [{error, "Create friend error"}]};
+				       true ->
+					   {json, [{error, "OK"},
+						   {result, SavedOtherNakama:attributes()}]}
+				   end
+			    end
+		    end;
+		OtherNakama ->
+		    {json, [{error, "Already added"}]}
+	    end
+    end;
+
+friend('DELETE', [OwnedAccountId, OtherNakamaName], User) ->
+    case User:first_owned_account([{id, 'equals', OwnedAccountId}]) of
+	undefined ->
+	    {json, [{error, "Bad id"}]};
+	OwnedAccount ->
+	    case OwnedAccount:first_other_nakama([{name, 'equals', OtherNakamaName}]) of
+		 undefined -> %% not found, bad name
+		     OtherNakamas = OwnedAccount:other_nakamas(),
+		     {json, [{error, "Bad name"}
+			     ,{owned_account, OwnedAccount:attributes()}
+			     ,{other_nakamas, lists:map(fun(OtherNakama) ->
+								OtherNakama:attributes()
+							end,
+							OtherNakamas)}
+			    ]};
+		 OtherNakama ->
+		     case boss_db:find(owned_account, [{name, 'equals', OtherNakamaName},
+						       {yuza_id, 'not_equals', User:id()}]) of
+			 {error, Reason} ->
+			     lager:error("boss_db find error: ~p", [Reason]),
+			     {json, [{error, Reason}]};
+			 [] -> %% not found firend, act delete
+			     case boss_db:delete(OtherNakama:id()) of
+				 {error, Reason} ->
+				     {json, [{error, Reason}]};
+				 ok ->
+				     {json, [{error, "OK"}]}
+			     end;
+			OwnedAccounts -> %% found friend
+			    case lists:all(fun(TheOwnedAccount) ->
+						   %% make friend
+						   Dads = TheOwnedAccount:belongs_to(),
+						   lists:all(fun(Dad) ->
+								     {yuza, Yuza} = Dad,
+								     utils:delete_nakama(User, Yuza)
+							     end,
+							     Dads)
+					   end,
+					   OwnedAccounts) of
+				false ->
+				    {json, [{error, "delete friend error"}]};
+				true ->
+				    case boss_db:delete(OtherNakama:id()) of
+					{error, Reason} ->
+					    {json, [{error, Reason}]};
+					ok ->
+					    {json, [{error, "OK"}]}
+				    end
+			    end
+		    end
+	    end
+    end;
+
+friend(_, [_], _) ->
+    {json, [{error, "Not supported"}]}.
+
+delete_friend('POST', [Id], User) ->
     case User:first_owned_account([{id, 'equals', Id}]) of
 	undefined ->
 	    {json, [{error, "Bad id"}]};
 	OwnedAccount ->
-	    case Req:param("friends") of
+	     case Req:param("friends") of
 		undefined ->
-		    {json, [{error, "Need nakamas"}]};
+		    {json, [{error, "Need friends"}]};
 		Nakamas ->
 		    Friends = erlang:list_to_binary(Nakamas),
 		    case jsx:decode(Friends) of
 			{incomplete, _} ->
-			    {json, [{error, "Bad Nakamas format"}]};
+			    {json, [{error, "Bad friends format"}]};
 			[] ->
-			    {json, [{error, "Empty Nakamas"}]};
+			    {json, [{error, "Empty friends"}]};
 			Json ->
 			    lager:info("Json: ~p",[Json]),
-			    lists:foreach(fun(Name) ->
-						  case boss_db:find(owned_account, [{name, 'equals', erlang:binary_to_list(Name)}]) of
-						      {error, Reason} ->
-							  lager:error("boss_db find error: ~p", [Reason]),
-							  false;
-						      [] ->
-							  continue;
-						      OwnedAccounts ->
-							  lists:foreach(fun(OwnedAccount) ->
-										Dads = OwnedAccount:belongs_to(),
-										lists:foreach(fun(Dad) ->
-												      {yuza, Yuza} = Dad,
-												      utils:make_nakama(User, Yuza)
-											      end,
-											      Dads)
-									end,
-									OwnedAccounts)
-						  end
-					  end,
-					  Json),
-			    %% find each name in other_nakama
+			    %% find can delete
+			    OldFriends = lists:filter(fun(Name) ->
+							      case boss_db:find(other_nakama, [{name, 'equals', erlang:binary_to_list(Name)},
+											       {owned_account_id, 'equals', Id}]) of
+								  {error, Reason} ->
+								      lager:error("boss_db find error: ~p", [Reason]),
+								      false;
+								  [] ->
+								      lager:info("not found: ~p id: ~p", [Name, Id]),
+								      false;
+								  OtherNakamas ->
+								      lager:info("found: ~p", [Name]),
+								      lists:all(fun(OtherNakama) ->
+											case boss_db:delete(OtherNakama:id()) of
+											    {error, Reason} ->
+												lager:error("boss_db delete error: ~p", [Reason]),
+												false;
+											    ok ->
+												true;
+											    _ ->
+												false
+											end
+										end,
+										OtherNakamas)
+							      end
+						      end,
+						      Json),
 			    case lists:all(fun(Name) ->
-						  case boss_db:find(other_nakama, [{name, 'equals', Name},
-										   {owned_account_id, 'equals', Id}]) of
-						      {error, Reason} ->
-							  lager:error("boss_db find error: ~p", [Reason]),
-							  false;
-						      [] ->
-							  lager:info("not found: ~p", [Name]),
-							  NewOtherNakama = other_nakama:new(id, Id, Name),
-							  case NewOtherNakama:save() of
-							      {error, ErrorMessages} ->
-								  lager:error("boss_db save error: ~p", [ErrorMessages]),
-								  false;
-							      {ok, _}  ->
-								  true
-							  end;
-						      OtherNakamas ->
-							  true
-						  end
+						   case boss_db:find(owned_account, [{name, 'equals', Name}]) of
+						       {error, Reason} ->
+							   lager:error("boss_db find error: ~p", [Reason]),
+							   false;
+						       [] ->
+							   %% no firends
+							   true;
+						       OwnedAccounts ->
+							   lists:all(fun(OwnedAccount) ->
+									     case OwnedAccount:id() of
+										 Id ->
+										     %% is me
+										     false;
+										 _ ->
+										     %% delete friend
+										     Dads = OwnedAccount:belongs_to(),
+										     lists:all(fun(Dad) ->
+												       {yuza, Yuza} = Dad,
+												       utils:delete_nakama(User, Yuza)
+											       end,
+											       Dads)
+									     end
+								     end,
+								     OwnedAccounts)
+						   end
 					   end,
-					   Json) of
+					   OldFriends) of
 				false ->
 				    {json, [{error, "Create friend error"}]};
 				true ->
 				    {json, [{error, Json}]}
 			    end
 		    end
-	    end
-    end;
-    %% case Req:param("friends") of
-    %%	undefined ->
-    %%	    {json, [{error, "Need friends"}]};
-    %%	Friends ->
-    %%	    %Json = jsx:decode(Friends),
-    %%	    {json, [{error, Friends}]}
-    %% end;
-friend('PUT', [Id], User) ->
-    case User:first_owned_account([{id, 'equals', Id}]) of
-	undefined ->
-	    {json, [{error, "Bad id"}]};
-	OwnedAccountId ->
-	    case jsx:decode(Req:request_body()) of
-		{incomplete, _} ->
-		    {json, [{error, "Bad request body"}]};
-		[] ->
-		    {json, [{error, "Bad request body"}]};
-		Json ->
-		    lager:info("Json: ~p",[Json]),
-		    Json
-	    end
+	     end
     end;
 
-friend('DELETE', [Id], User) ->
-    case User:first_owned_account([{id, 'equals', Id}]) of
-	undefined ->
-	    {json, [{error, "Bad id"}]};
-	OwnedAccountId ->
-	    case jsx:decode(Req:request_body()) of
-		{incomplete, _} ->
-		    {json, [{error, "Bad request body"}]};
-		[] ->
-		    {json, [{error, "Bad request body"}]};
-		Json ->
-		    Json
-	    end
-    end;
-
-friend(_, [_], _) ->
-    {json, [{error, "Not supported"}]}.
+delete_friend(_, [_], _) ->
+     {json, [{error, "Not supported"}]}.
 
 nakama('GET', [Id], User) ->
     case User:nakamas() of

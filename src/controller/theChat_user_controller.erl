@@ -2,23 +2,31 @@
 -compile(export_all).
 
 login('POST', []) ->
-    Name = Req:param("name"),
-    case boss_db:find_first(yuza, [{name, 'equals', Name}]) of
+    case Req:param("name") of
 	undefined ->
-	    {json, [{error, "Bad name"}]};
-	User ->
-	    case utils:check_password(User:password(),
-					 Req:param("password")) of
-		true ->
-		    case boss_session:set_session_data(SessionID,
-						       user_id, User:id()) of
-			ok ->
-			    {json, [{error, "OK"}]};
-			{error, Reason} ->
-			    {json, [{error, Reason}]}
-		    end;
-		false ->
-		    {json, [{error, "Bad password"}]}
+	    {json, [{error, "Need name"}]};
+	Name ->
+	    case boss_db:find_first(yuza, [{name, 'equals', Name}]) of
+		undefined ->
+		    {json, [{error, "Bad name"}]};
+		User ->
+		    case Req:param("password") of
+			undefined ->
+			    {json, [{error, "Need password"}]};
+			Password ->
+			    case utils:check_password(User:password(), Password) of
+				true ->
+				    case boss_session:set_session_data(SessionID,
+								       user_id, User:id()) of
+					ok ->
+					    {json, [{error, "OK"}]};
+					{error, Reason} ->
+					    {json, [{error, Reason}]}
+				    end;
+				false ->
+				    {json, [{error, "Bad password"}]}
+			    end
+		    end
 	    end
     end;
 

@@ -29,28 +29,42 @@ date('POST', [To], User) ->
 					undefined ->
 					    {json, [{error, "Need from"}]};
 					FromWho ->
-					    case User:owned_accounts([{name, 'equals', FromWho}]) of
+					    case User:first_owned_account([{name, 'equals', FromWho},
+									   {type, 'equals', AccountType}]) of
 						{error, Reason} ->
 						    {json, [{error, Reason}]};
-						[] ->
+						undefined ->
 						    {json, [{error, "Bad from id"}]};
 						_ ->
 						    case Req:post_param("to") of
 							undefined ->
 							    {json, [{error, "Need to"}]};
 							ToWho ->
-							    case Yuza:owned_accounts([{name, 'equals', ToWho}]) of
+							    case Yuza:first_owned_account([{name, 'equals', ToWho},
+											   {type, 'equals', AccountType}]) of
 								{error, Reason} ->
 								    {json, [{error, Reason}]};
-								[] ->
+								undefined ->
 								    {json, [{error, "Bad to id"}]};
 								_ ->
-								    NewComment = comment:new(id, Yuza:id(), User:id(), DateType, FromWho, AccountType, ToWho),
-								    case NewComment:save() of
-									{error, [ErrorMessages]} ->
-									    {json, [{error, ErrorMessages}]};
-									{ok, _} ->
-									    {json, [{error, "OK"}]}
+								    UserId = User:id(),
+								    case Yuza:first_comment([{from, 'equals', UserId},
+											     {comment, 'equals', DateType},
+											     {from_who, 'equals', FromWho},
+											     {from_which, 'equals', AccountType},
+											     {to_who, 'equals', ToWho}]) of
+									undefined ->
+									    NewComment = comment:new(id, Yuza:id(), UserId, DateType, FromWho, AccountType, ToWho),
+									    case NewComment:save() of
+										{error, [ErrorMessages]} ->
+										    {json, [{error, ErrorMessages}]};
+										{ok, _} ->
+										    {json, [{error, "OK"}]}
+									    end;
+									Comment ->
+									    {json, [{error, "Duplicated"},
+										    {date, Comment:attributes()}
+										   ]}
 								    end
 							    end
 						    end
@@ -66,74 +80,94 @@ date('GET', [], User) ->
 	{error, Reason} ->
 	    {json, [{error, Reason}]};
 	Comments ->
+	    %% Dates = lists:map(fun(Comment) ->
+	    %%			      [{type, Comment:from_which()},
+	    %%			       {from, Comment:from_who()},
+	    %%			       {to, Comment:to_who()}
+	    %%			      ]
+	    %%		      end,
+	    %%		      Comments),
+	    %% {json, [{error, "OK"},
+	    %%	    {dates, Dates}
+	    %%	   ]}
 	    Dates = lists:map(fun(Comment) ->
-				      [{type, Comment:from_which()},
-				       {from, Comment:from_who()},
-				       {to, Comment:to_who()}
-				      ]
+				      Comment:attributes()
 			      end,
 			      Comments),
 	    {json, [{error, "OK"},
-		    {dates, Dates}
-			   ]}
+		    {dates, Dates}]}
     end;
 
 % to
-date('DELETE', [To], User) ->
-    case boss_db:find_first(yuza, [{name, 'equals', To}]) of
-	{error, Reason} ->
-	    {json, [{error, Reason}]};
-	Yuza ->
-	     case Req:param("type") of
-		undefined ->
-		    {json, [{error, "Need type"}]};
-		Type ->
-		    case lists:any(fun(TheType) ->
-					   Type =:= TheType
-				   end,
-				   utils:account_types()) of
-			false ->
-			    {json, [{error, "Not supported type"}]};
-			true ->
-			    case Req:param("from") of
-				undefined ->
-				    {json, [{error, "Need from"}]};
-				[] ->
-				    {json, [{error, "Bad from id"}]};
-				FromWho ->
-				    case Req:param("to") of
-					undefined ->
-					    {json, [{error, "Need to"}]};
-					[] ->
-					    {json, [{error, "Bad to id"}]};
-					ToWho ->
-					    case Yuza:comments([{from_who, 'equals', FromWho}, {to_who, 'equals', ToWho}]) of
-						{error, Reason} ->
-						    {json, [{error, Reason}]};
-						[] ->
-						    {json, [{error, "Empty"}]};
-						Comments ->
-						    case lists:all(fun(Comment) ->
-									   case boss_db:delete(Comment:id()) of
-									       {error, Reason} ->
-										   error_logger:info_msg(Reason),
-										   false;
-									       ok ->
-										   true
-									   end
-								   end,
-								   Comments) of
-							false ->
-							    {json, [{error, "delete comment error"}]};
+%% date('DELETE', [To], User) ->
+%%     case boss_db:find_first(yuza, [{name, 'equals', To}]) of
+%%	{error, Reason} ->
+%%	    {json, [{error, Reason}]};
+%%	Yuza ->
+%%	     case Req:param("type") of
+%%		undefined ->
+%%		    {json, [{error, "Need type"}]};
+%%		Type ->
+%%		    case lists:any(fun(TheType) ->
+%%					   Type =:= TheType
+%%				   end,
+%%				   utils:account_types()) of
+%%			false ->
+%%			    {json, [{error, "Not supported type"}]};
+%%			true ->
+%%			    case Req:param("from") of
+%%				undefined ->
+%%				    {json, [{error, "Need from"}]};
+%%				[] ->
+%%				    {json, [{error, "Bad from id"}]};
+%%				FromWho ->
+%%				    case Req:param("to") of
+%%					undefined ->
+%%					    {json, [{error, "Need to"}]};
+%%					[] ->
+%%					    {json, [{error, "Bad to id"}]};
+%%					ToWho ->
+%%					    case Yuza:comments([{from_who, 'equals', FromWho}, {to_who, 'equals', ToWho}]) of
+%%						{error, Reason} ->
+%%						    {json, [{error, Reason}]};
+%%						[] ->
+%%						    {json, [{error, "Empty"}]};
+%%						Comments ->
+%%						    case lists:all(fun(Comment) ->
+%%									   case boss_db:delete(Comment:id()) of
+%%									       {error, Reason} ->
+%%										   error_logger:info_msg(Reason),
+%%										   false;
+%%									       ok ->
+%%										   true
+%%									   end
+%%								   end,
+%%								   Comments) of
+%%							false ->
+%%							    {json, [{error, "delete comment error"}]};
 
-							true ->
-							    {json, [{error, "OK"}]}
-						    end
-					    end
-				    end
-			    end
-		    end
-	     end
+%%							true ->
+%%							    {json, [{error, "OK"}]}
+%%						    end
+%%					    end
+%%				    end
+%%			    end
+%%		    end
+%%	     end
+%%     end;
+date('DELETE', [CommentId], User) ->
+    case boss_db:find_first(comment, [{from, 'equals', User:id()},
+				      {id, 'equals', CommentId}]) of
+	undefined ->
+	    {json, [{error, "Bad id"}]};
+	_Comment ->
+	    case boss_db:delete(CommentId) of
+		{error, Reason} ->
+		    lager:error("boss_db delete error: ~p", [Reason]),
+		    {json, [{error, Reason}]};
+		ok ->
+		    {json, [{error, "OK"}]}
+	    end
     end;
 % to
 date(_, _, _) ->
@@ -143,11 +177,7 @@ date(_, _, _) ->
 dated('GET', [], User) ->
     Comments = User:comments(),
     Dates = lists:map(fun(Comment) ->
-			      [{date_type, Comment:comment()},
-			       {account_type, Comment:from_which()},
-			       {from, Comment:from_who()},
-			       {to, Comment:to_who()}
-			      ]
+			      Comment:attributes()
 		      end,
 		      Comments),
     {json, [{error, "OK"},
@@ -155,59 +185,18 @@ dated('GET', [], User) ->
 	   ]};
 
 % from
-dated('DELETE', [From], User) ->
-    case boss_db:find_first(yuza, [{name, 'equals', From}]) of
-	{error, Reason} ->
-	    {json, [{error, Reason}]};
-	_ ->
-	     case Req:param("type") of
-		undefined ->
-		    {json, [{error, "Need type"}]};
-		Type ->
-		    case lists:any(fun(TheType) ->
-					   Type =:= TheType
-				   end,
-				   utils:account_types()) of
-			false ->
-			    {json, [{error, "Not supported type"}]};
-			true ->
-			    case Req:param("from") of
-				undefined ->
-				    {json, [{error, "Need from"}]};
-				[] ->
-				    {json, [{error, "Bad from id"}]};
-				FromWho ->
-				    case Req:param("to") of
-					undefined ->
-					    {json, [{error, "Need to"}]};
-					[] ->
-					    {json, [{error, "Bad to id"}]};
-					ToWho ->
-					    case User:comments([{from_who, 'equals', FromWho}, {to_who, 'equals', ToWho}]) of
-						{error, Reason} ->
-						    {json, [{error, Reason}]};
-						Comments ->
-						    case lists:all(fun(Comment) ->
-									   case boss_db:delete(Comment:id()) of
-									       {error, Reason} ->
-										   error_logger:info_msg(Reason),
-										   false;
-									       ok ->
-										   true
-									   end
-								   end,
-								   Comments) of
-							false ->
-							    {json, [{error, "delete comment error"}]};
-
-							true ->
-							    {json, [{error, "OK"}]}
-						    end
-					    end
-				    end
-			    end
-		    end
-	     end
+dated('DELETE', [CommentId], User) ->
+    case User:first_comment([{id, 'equals', CommentId}]) of
+	undefined ->
+	    {json, [{error, "Bad id"}]};
+	_Comment ->
+	    case boss_db:delete(CommentId) of
+		{error, Reason} ->
+		    lager:error("boss_db delete error: ~p", [Reason]),
+		    {json, [{error, Reason}]};
+		ok ->
+		    {json, [{error, "OK"}]}
+	    end
     end;
 
 dated(_, _, _) ->

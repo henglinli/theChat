@@ -69,3 +69,56 @@ make_nakama(Me, You) ->
 	    lager:error("boss_db save error: ~p", [ErrorMessages]),
 	    false
     end.
+
+-spec delete_nakama(term(), term()) -> boolean().
+delete_nakama(Me, You) ->
+    case boss_db:find(nakama, [{user_id, 'equals', Me:id()},
+			       {name, 'equals', You:name()}]) of
+	
+	{error, Reason} ->
+	    lager:error("boss_db find error: ~p", [Reason]),
+	    false;
+	[] ->
+	    false;
+	Nakamas ->
+	    case lists:all(fun(Nakama) ->
+			      case boss_db:delete(Nakama:id()) of
+				  {error, Reason} ->
+				      lager:error("boss_db delete error: ~p", [Reason]),
+				      false;
+				  ok -> 
+				      true;
+				  _ ->
+				      false
+			      end
+		      end,
+		      Nakamas) of
+		false ->
+		    false;
+		true ->
+		    case boss_db:find(nakama, [{user_id, 'equals', You:id()},
+					       {name, 'equals', Me:name()}]) of
+			
+			{error, Reason} ->
+			    lager:error("boss_db find error: ~p", [Reason]),
+			    false;
+			[] ->
+			    false;
+			Nakamas ->
+			    lists:all(fun(Nakama) ->
+					      case boss_db:delete(Nakama:id()) of
+						  {error, Reason} ->
+						      lager:error("boss_db delete error: ~p", [Reason]),
+						      false;
+						  ok -> 
+						      true;
+						  _ ->
+						      false
+					      end
+					   end,
+				      Nakamas) 
+		    end
+	    end
+    end.
+
+
