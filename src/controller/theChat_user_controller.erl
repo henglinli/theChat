@@ -14,7 +14,7 @@ login('POST', []) ->
 			undefined ->
 			    {json, [{error, "Need password"}]};
 			Password ->
-			    case utils:check_password(User:password(), Password) of
+			    case pw_auth:check_password(erlang:list_to_binary(Password), User:password(), User:salt()) of
 				true ->
 				    case boss_session:set_session_data(SessionID,
 								       user_id, User:id()) of
@@ -34,8 +34,8 @@ login(_, []) ->
     {json, [{error, "Please login"}]}.
 
 register('POST', []) ->
-    case Req:param("email") of 
-	undefined -> 
+    case Req:param("email") of
+	undefined ->
 	    {json, [{error, "Need email"}]};
 	Email ->
 	    case Req:param("name") of
@@ -43,14 +43,13 @@ register('POST', []) ->
 		    {json, [{error, "Need name"}]};
 		Name ->
 		    case Req:param("password") of
-			undefined -> 
+			undefined ->
 			    {json, [{error, "Need password"}]};
-			Password ->			    
-			    Shadow = utils:shadow_password(Password),
-			    case boss_db:find_first(yuza, [{name, 'equals', Name}]) of			
+			Password ->
+			    case boss_db:find_first(yuza, [{name, 'equals', Name}]) of
 				undefined ->
-				    User = yuza:new(
-					     id, Email, Name, boss_mq:now(""), Shadow),				  
+				    {pbkdf2, HexPass, Salt} = pw_auth:hash_password(erlang:list_to_binary(Password)),
+				    User = yuza:new(id, Email, Name, boss_mq:now(""), HexPass, Salt),
 				    case User:save() of
 					{error, [ErrorMessages]} ->
 					    {json, [{error, ErrorMessages}]};
@@ -58,11 +57,11 @@ register('POST', []) ->
 					    {json, [{error, "OK"}]}
 				    end;
 				User ->
-				    {json, [{error, "Conflict"}]}     
+				    {json, [{error, "Conflict"}]}
 			    end
-		    end				
+		    end
 	    end
     end;
-			
+
 register(_, []) ->
     {json, [{error, "Not supported"}]}.

@@ -2,7 +2,8 @@
 	       Email,
 	       Name,
 	       RegisterTime,
-	       Password]).
+	       Password,
+	       Salt]).
 %
 -compile(export_all).
 %
