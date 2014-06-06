@@ -54,7 +54,7 @@ date('POST', [To], User) ->
 											     {from_which, 'equals', AccountType},
 											     {to_who, 'equals', ToWho}]) of
 									undefined ->
-									    NewComment = comment:new(id, Yuza:id(), UserId, DateType, FromWho, AccountType, ToWho),
+									    NewComment = comment:new(id, Yuza:id(), UserId, DateType, FromWho, AccountType, ToWho, false),
 									    case NewComment:save() of
 										{error, [ErrorMessages]} ->
 										    {json, [{error, ErrorMessages}]};
@@ -200,4 +200,29 @@ dated('DELETE', [CommentId], User) ->
     end;
 
 dated(_, _, _) ->
+    {json, [{error, "Not supported"}]}.
+
+new_dated('GET', [], User) ->
+    Comments = User:comments(),
+    Dates = lists:flatmap(fun(Comment) ->
+			      case Comment:touched() of
+				  true ->
+				      [];
+				  false ->
+				      NewComment = Comment:set(touched, true),
+				      case NewComment:save() of
+					  {error, Reason} ->
+					      lager:error("boss_db delete error: ~p", [Reason]),
+					      [];
+					  {ok, SavedNewComment} ->
+					      SavedNewComment:attributes()
+				      end
+			      end
+		      end,
+		      Comments),
+    {json, [{error, "OK"},
+	    {dates, Dates}
+	   ]};
+
+new_dated(_, _, _) ->
     {json, [{error, "Not supported"}]}.

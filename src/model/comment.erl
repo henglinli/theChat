@@ -4,7 +4,8 @@
 		  Comment,
 		  FromWho,
 		  FromWhich,
-		  ToWho
+		  ToWho,
+		  Touched
 		 ]).
 %
 -compile(export_all).
